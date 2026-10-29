@@ -4,6 +4,13 @@
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
  
 import { Aviso } from '@/components/aviso';
 import { Boton } from '@/components/boton';
@@ -16,6 +23,21 @@ import { validarCorreo } from '@/lib/validaciones';
  
 export default function PantallaLogin() {
   const { iniciarSesion } = useSesion();
+  const desplazamientoX = useSharedValue(0);
+  const estiloSacudida = useAnimatedStyle(() => ({
+    transform: [{ translateX: desplazamientoX.value }],
+  }));
+
+  function triggerShake() {
+    const OFFSET = 10;
+    const TIME = 80;
+
+    desplazamientoX.set(withSequence(
+      withTiming(-OFFSET, { duration: TIME / 2 }),
+      withRepeat(withTiming(OFFSET, { duration: TIME }), 3, true),
+      withTiming(0, { duration: TIME }),
+    ));
+  }
  
   // Estado del formulario: un useState por campo es lo más claro para empezar.
   const [correo, setCorreo] = useState('');
@@ -32,7 +54,10 @@ export default function PantallaLogin() {
     };
     setErrores(nuevosErrores);
     setErrorGeneral(null);
-    if (nuevosErrores.correo || nuevosErrores.clave) return;
+    if (nuevosErrores.correo || nuevosErrores.clave) {
+      triggerShake();
+      return;
+    }
  
     // 2. Llamamos a Firebase. Si funciona, el layout raíz cambia de pantalla solo.
     setEnviando(true);
@@ -40,6 +65,7 @@ export default function PantallaLogin() {
       await iniciarSesion(correo, clave);
     } catch (error) {
       setErrorGeneral(mensajeDeError(error));
+      triggerShake();
       // finally no sirve aquí para todo: si el ingreso funciona, esta pantalla
       // se desmonta y no debemos actualizar su estado.
       setEnviando(false);
@@ -53,29 +79,31 @@ export default function PantallaLogin() {
       bajada="Ingresa con el correo y la contraseña de tu cuenta.">
       {errorGeneral ? <Aviso tipo="error" mensaje={errorGeneral} /> : null}
  
-      <CampoTexto
-        etiqueta="Correo"
-        placeholder="nombre.apellido@epn.edu.ec"
-        value={correo}
-        onChangeText={setCorreo}
-        error={errores.correo}
-        keyboardType="email-address"
-        textContentType="emailAddress" // permite autocompletar en iOS
-        autoComplete="email" // y en Android
-        returnKeyType="next"
-      />
- 
-      <CampoTexto
-        etiqueta="Contraseña"
-        value={clave}
-        onChangeText={setClave}
-        error={errores.clave}
-        esClave
-        textContentType="password"
-        autoComplete="current-password"
-        returnKeyType="go"
-        onSubmitEditing={manejarIngreso} // "Enter" en el teclado también envía
-      />
+      <Animated.View style={estiloSacudida}>
+        <CampoTexto
+          etiqueta="Correo"
+          placeholder="nombre.apellido@epn.edu.ec"
+          value={correo}
+          onChangeText={setCorreo}
+          error={errores.correo}
+          keyboardType="email-address"
+          textContentType="emailAddress" // permite autocompletar en iOS
+          autoComplete="email" // y en Android
+          returnKeyType="next"
+        />
+
+        <CampoTexto
+          etiqueta="Contraseña"
+          value={clave}
+          onChangeText={setClave}
+          error={errores.clave}
+          esClave
+          textContentType="password"
+          autoComplete="current-password"
+          returnKeyType="go"
+          onSubmitEditing={manejarIngreso} // "Enter" en el teclado también envía
+        />
+      </Animated.View>
  
       <View style={styles.olvido}>
         <Boton
